@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テトリス</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="game-container">
+    <h1>TETRIS</h1>
+    <div class="game-area">
+      <div class="side-panel">
+        <div class="panel-box">
+          <h2>HOLD</h2>
+          <canvas id="hold-canvas" width="100" height="100"></canvas>
+        </div>
+        <div class="panel-box">
+          <h2>SCORE</h2>
+          <div id="score">0</div>
+        </div>
+        <div class="panel-box">
+          <h2>LEVEL</h2>
+          <div id="level">1</div>
+        </div>
+        <div class="panel-box">
+          <h2>LINES</h2>
+          <div id="lines">0</div>
+        </div>
+      </div>
+
+      <div class="board-wrapper">
+        <canvas id="board-canvas" width="300" height="600"></canvas>
+        <div id="overlay" class="overlay hidden">
+          <div id="overlay-text">TETRIS</div>
+          <button id="start-btn">スタート</button>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <div class="panel-box">
+          <h2>NEXT</h2>
+          <canvas id="next-canvas" width="100" height="260"></canvas>
+        </div>
+        <div class="panel-box controls">
+          <h2>操作方法</h2>
+          <ul>
+            <li>← → : 移動</li>
+            <li>↓ : ソフトドロップ</li>
+            <li>↑ : 回転</li>
+            <li>Z : 逆回転</li>
+            <li>Space : ハードドロップ</li>
+            <li>C : ホールド</li>
+            <li>P : ポーズ</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mobile-controls">
+      <button id="btn-left">←</button>
+      <button id="btn-rotate">↻</button>
+      <button id="btn-right">→</button>
+      <button id="btn-down">↓</button>
+      <button id="btn-drop">DROP</button>
+      <button id="btn-hold">HOLD</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
