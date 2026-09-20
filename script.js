@@ -90,17 +90,21 @@ class Board {
     }
   }
 
-  clearLines() {
-    let cleared = 0;
-    this.grid = this.grid.filter((row) => {
-      const full = row.every((cell) => cell !== null);
-      if (full) cleared++;
-      return !full;
-    });
+  findFullRows() {
+    const rows = [];
+    for (let y = 0; y < ROWS; y++) {
+      if (this.grid[y].every((cell) => cell !== null)) rows.push(y);
+    }
+    return rows;
+  }
+
+  removeRows(rows) {
+    const rowSet = new Set(rows);
+    this.grid = this.grid.filter((_, y) => !rowSet.has(y));
     while (this.grid.length < ROWS) {
       this.grid.unshift(Array(COLS).fill(null));
     }
-    return cleared;
+    return rows.length;
   }
 
   isRowAboveVisible() {
@@ -154,6 +158,10 @@ class Game {
     this.running = false;
     this.paused = false;
     this.gameOver = false;
+    this.isClearing = false;
+    this.clearingRows = [];
+    this.clearFlashTimer = 0;
+    this.clearFlashDuration = 360;
     this.updateStats();
   }
 
@@ -267,6 +275,7 @@ class Game {
   }
 
   move(dx) {
+    if (this.isClearing) return;
     const cells = this.current.absoluteCells(this.current.rotation, this.current.x + dx, this.current.y);
     if (this.board.isValid(cells)) {
       this.current.x += dx;
@@ -274,6 +283,7 @@ class Game {
   }
 
   rotate(dir) {
+    if (this.isClearing) return;
     const newRotation = (this.current.rotation + dir + 4) % 4;
     const kicks = [0, -1, 1, -2, 2];
     for (const kick of kicks) {
@@ -287,6 +297,7 @@ class Game {
   }
 
   softDrop() {
+    if (this.isClearing) return;
     if (this.tryMoveDown()) {
       this.score += 1;
       this.updateStats();
@@ -294,6 +305,7 @@ class Game {
   }
 
   hardDrop() {
+    if (this.isClearing) return;
     let distance = 0;
     while (this.tryMoveDown()) distance++;
     this.score += distance * 2;
@@ -311,7 +323,7 @@ class Game {
   }
 
   hold() {
-    if (this.holdUsed) return;
+    if (this.isClearing || this.holdUsed) return;
     this.holdUsed = true;
     const currentType = this.current.type;
     if (this.holdType === null) {
@@ -329,10 +341,25 @@ class Game {
 
   lockPiece() {
     this.board.lock(this.current.absoluteCells(), COLORS[this.current.type]);
-    const cleared = this.board.clearLines();
-    if (cleared > 0) {
-      this.applyScore(cleared);
+    const fullRows = this.board.findFullRows();
+    if (fullRows.length > 0) {
+      this.isClearing = true;
+      this.clearingRows = fullRows;
+      this.clearFlashTimer = this.clearFlashDuration;
+    } else {
+      this.spawnNext();
     }
+  }
+
+  finishClear() {
+    const cleared = this.board.removeRows(this.clearingRows);
+    this.isClearing = false;
+    this.clearingRows = [];
+    this.applyScore(cleared);
+    this.spawnNext();
+  }
+
+  spawnNext() {
     this.holdUsed = false;
     this.current = this.spawnPiece();
     if (!this.board.isValid(this.current.absoluteCells())) {
@@ -369,12 +396,19 @@ class Game {
     if (!this.paused) {
       const delta = time - this.lastTime;
       this.lastTime = time;
-      this.dropCounter += delta;
-      if (this.dropCounter > this.dropInterval) {
-        if (!this.tryMoveDown()) {
-          this.lockPiece();
+      if (this.isClearing) {
+        this.clearFlashTimer -= delta;
+        if (this.clearFlashTimer <= 0) {
+          this.finishClear();
         }
-        this.dropCounter = 0;
+      } else {
+        this.dropCounter += delta;
+        if (this.dropCounter > this.dropInterval) {
+          if (!this.tryMoveDown()) {
+            this.lockPiece();
+          }
+          this.dropCounter = 0;
+        }
       }
       this.draw();
     } else {
@@ -406,6 +440,16 @@ class Game {
       }
     }
 
+    if (this.isClearing) {
+      const blink = Math.floor(this.clearFlashTimer / 90) % 2 === 0;
+      if (blink) {
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        for (const y of this.clearingRows) {
+          ctx.fillRect(0, y * CELL, COLS * CELL, CELL);
+        }
+      }
+    }
+
     ctx.strokeStyle = "rgba(255,255,255,0.05)";
     for (let x = 0; x <= COLS; x++) {
       ctx.beginPath();
@@ -420,15 +464,17 @@ class Game {
       ctx.stroke();
     }
 
-    const ghostY = this.ghostY();
-    const ghostCells = this.current.absoluteCells(this.current.rotation, this.current.x, ghostY);
-    for (const [x, y] of ghostCells) {
-      if (y >= 0) this.drawCell(ctx, x, y, COLORS[this.current.type], true);
-    }
+    if (!this.isClearing) {
+      const ghostY = this.ghostY();
+      const ghostCells = this.current.absoluteCells(this.current.rotation, this.current.x, ghostY);
+      for (const [x, y] of ghostCells) {
+        if (y >= 0) this.drawCell(ctx, x, y, COLORS[this.current.type], true);
+      }
 
-    const cells = this.current.absoluteCells();
-    for (const [x, y] of cells) {
-      if (y >= 0) this.drawCell(ctx, x, y, COLORS[this.current.type]);
+      const cells = this.current.absoluteCells();
+      for (const [x, y] of cells) {
+        if (y >= 0) this.drawCell(ctx, x, y, COLORS[this.current.type]);
+      }
     }
 
     this.drawPreview(this.nextCtx, this.nextCanvas, this.queue.slice(0, 4), true);
@@ -473,5 +519,5 @@ class Game {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  new Game();
+  window.gameInstance = new Game();
 });
